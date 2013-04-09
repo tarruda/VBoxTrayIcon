@@ -123,8 +123,8 @@ LRESULT CALLBACK HandleEvent(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
   {
     case WM_TRAYEVENT: return HandleTrayEvent(hWnd, msg, wParam, lParam);
     case WM_CREATE: InitMenus(); return 0;
-    /* case WM_QUERYENDSESSION: return TRUE; */
-    /* case WM_ENDSESSION: if (wParam) FreeVirtualbox(); return 0; */
+    case WM_QUERYENDSESSION: return TRUE;
+    case WM_ENDSESSION: if (wParam) FreeVirtualbox(); return 0;
     default: return DefWindowProc(hWnd, msg, wParam, lParam);
   };
 }

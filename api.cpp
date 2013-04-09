@@ -16,9 +16,6 @@
 
 // main interface to virtualbox api
 static IVirtualBox *virtualbox = NULL;
-// running vm session
-static ISession *session = NULL;
-static IConsole *console = NULL;
 // running vm
 IMachine *machine = NULL;
 // vm name
@@ -28,30 +25,48 @@ void VMStart()
 {
   HRESULT rc;
   IProgress *progress;
+  ISession *session;
   BSTR stype = SysAllocString(L"headless");
+
+  rc = CoCreateInstance(CLSID_Session, NULL, CLSCTX_INPROC_SERVER,
+      IID_ISession, (void**)&session);
+  if (!SUCCEEDED(rc)) {
+    ShowError(L"Failed to create session instance for '%s'. rc = 0x%x", name, rc);
+    return;
+  }
 
   rc = machine->LaunchVMProcess(session, stype, NULL, &progress);
   if (!SUCCEEDED(rc))
     ShowError(L"Failed to start '%s'. rc = 0x%x", name, rc);
 
   progress->WaitForCompletion(-1);
-  session->get_Console(&console);
   session->UnlockMachine();
   SysFreeString(stype);
   SAFE_RELEASE(progress);
+  SAFE_RELEASE(session);
 }
 
 void VMSaveState()
 {
   HRESULT rc;
   IProgress *progress;
+  ISession *session;
+  IConsole *console;
 
+  rc = CoCreateInstance(CLSID_Session, NULL, CLSCTX_INPROC_SERVER,
+      IID_ISession, (void**)&session);
+  if (!SUCCEEDED(rc)) {
+    ShowError(L"Failed to create session instance for '%s'. rc = 0x%x", name, rc);
+    return;
+  }
+  
   rc = machine->LockMachine(session, LockType_Shared);
-  if (FAILED(rc)) {
-    ShowError(L"Failed to acquire lock for '%s'. rc = 0x%x", name, rc);
+  if (!SUCCEEDED(rc)) {
+    ShowError(L"Failed to lock '%s'. rc = 0x%x", name, rc);
     return;
   }
 
+  session->get_Console(&console);
   rc = console->SaveState(&progress);
   if (FAILED(rc)) {
     ShowError(L"Failed to save '%s' state. rc = 0x%x", name, rc);
@@ -61,23 +76,37 @@ void VMSaveState()
   progress->WaitForCompletion(-1);
   session->UnlockMachine();
   SAFE_RELEASE(progress);
+  SAFE_RELEASE(console);
+  SAFE_RELEASE(session);
 }
 
 void VMAcpiShutdown()
 {
   HRESULT rc;
+  ISession *session;
+  IConsole *console;
 
-  rc = machine->LockMachine(session, LockType_Shared);
-  if (FAILED(rc)) {
-    ShowError(L"Failed to acquire lock for '%s'. rc = 0x%x", name, rc);
+  rc = CoCreateInstance(CLSID_Session, NULL, CLSCTX_INPROC_SERVER,
+      IID_ISession, (void**)&session);
+  if (!SUCCEEDED(rc)) {
+    ShowError(L"Failed to create session instance for '%s'. rc = 0x%x", name, rc);
     return;
   }
 
+  rc = machine->LockMachine(session, LockType_Shared);
+  if (!SUCCEEDED(rc)) {
+    ShowError(L"Failed to lock '%s'. rc = 0x%x", name, rc);
+    return;
+  }
+
+  session->get_Console(&console);
   rc = console->PowerButton();
   if (FAILED(rc))
     ShowError(L"Failed to press '%s' power button. rc = 0x%x", name, rc);
 
   session->UnlockMachine();
+  SAFE_RELEASE(console);
+  SAFE_RELEASE(session);
 }
 
 MachineState VMGetState()
@@ -115,20 +144,11 @@ int InitVirtualbox(const wchar_t *n)
       return 0;
     }
 
-    // create the session object.
-    rc = CoCreateInstance(CLSID_Session, NULL, CLSCTX_INPROC_SERVER,
-        IID_ISession, (void**)&session);
-
-    if (!SUCCEEDED(rc)) {
-      ShowError(L"Failed to create session instance for '%s'. rc = 0x%x", name, rc);
-      return 0;
-    }
-
     // if the vm is saved, start it now
     if (VMGetState() == MachineState_Saved)
       VMStart();
 
-    // release uneeded resources
+    SysFreeString(machineName);
     return 1;
   }
 }
