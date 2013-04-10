@@ -44,12 +44,6 @@ void InitMenus()
   AppendMenu(stopped_menu, MF_STRING, WM_TRAY_EXIT, "Exit");
 }
 
-BOOL ExitHandler(DWORD fdwCtrlType) 
-{ 
-  FreeVirtualbox();
-  return FALSE;
-}
-
 void UpdateTray(MachineState state)
 {
   switch (state) {
@@ -102,9 +96,7 @@ LRESULT CALLBACK HandleTrayEvent(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPar
           UpdateTray(MachineState_PoweredOff);
           break;
         case WM_TRAY_EXIT:
-          if (Ask(L"Are you sure?")) {
-            PostQuitMessage(0);
-          }
+          PostQuitMessage(0);
           break;
       };
       break;
@@ -121,10 +113,16 @@ LRESULT CALLBACK HandleEvent(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
   switch (msg)
   {
-    case WM_TRAYEVENT: return HandleTrayEvent(hWnd, msg, wParam, lParam);
-    case WM_CREATE: InitMenus(); return 0;
-    case WM_QUERYENDSESSION: return TRUE;
-    case WM_ENDSESSION: if (wParam) FreeVirtualbox(); return 0;
+    case WM_TRAYEVENT:
+      return HandleTrayEvent(hWnd, msg, wParam, lParam);
+    case WM_CREATE:
+      InitMenus();
+      return 0;
+    case WM_QUERYENDSESSION:
+      return TRUE;
+    case WM_ENDSESSION:
+      if (wParam) FreeVirtualbox();
+      return 0;
     default: return DefWindowProc(hWnd, msg, wParam, lParam);
   };
 }
@@ -154,14 +152,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     return 1;
   }
 
-  // This stops the child COM process from exiting before we have
-  // a chance to cleanly shutdown the running machine
-  SetConsoleCtrlHandler((PHANDLER_ROUTINE) ExitHandler, TRUE);
-
   // initialize the virtualbox api
   if (!InitVirtualbox(vmname))
     return 1;
-  
+
+  // This will make the process exit before VBoxSVC, which will give
+  // time to cleanly shutdown the VM
+  // Stolen from: https://github.com/toptensoftware/VBoxHeadlessTray
+  SetProcessShutdownParameters(0x400, 0);
+
   // every application that wants to use a message loop needs to
   // initialize/register this structure
   wcex.cbSize = sizeof(WNDCLASSEX);
