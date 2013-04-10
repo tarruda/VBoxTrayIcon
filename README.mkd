@@ -15,7 +15,12 @@ Observations:
 
 ###Installation/Usage
 
-No installation is required, just download the proper executable from the 'built' directory, place it somewhere in your HD and create one shortcut per VM(possibly on startup directory if you want to keep the vm always running) with the following command line (assuming you downloaded the executable to C:\Downloads):
+Prebuilt binaries:
+
+  - [VBoxTrayIcon.exe](https://github.com/tarruda/VBoxTrayIcon/raw/master/built/VBoxTrayIcon.exe)
+  - [VBoxTrayIcon-x64.exe](https://github.com/tarruda/VBoxTrayIcon/raw/master/built/VBoxTrayIcon-x64.exe)
+
+No installation is required, just download the right executable for your virtualbox installation, place it somewhere in your HD and create one shortcut per VM(possibly on startup directory if you want to keep the vm always running) with the following command line (assuming you downloaded the executable to C:\Downloads):
 
     C:\Downloads\VBoxTrayIcon-x64.exe %VMNAME% [%VMICON%].
 
