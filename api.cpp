@@ -155,9 +155,6 @@ int InitVirtualbox(const wchar_t *n)
 
 void FreeVirtualbox()
 {
-  if (VMGetState() == MachineState_Running) {
-    VMSaveState();
-  }
   virtualbox->Release();
   CoUninitialize();
 }

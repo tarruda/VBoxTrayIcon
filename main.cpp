@@ -99,12 +99,45 @@ LRESULT CALLBACK HandleTrayEvent(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPar
           UpdateTray(MachineState_PoweredOff);
           break;
         case WM_TRAY_EXIT:
-          PostQuitMessage(0);
+          if (VMGetState() == MachineState_Running) {
+            if (Ask(L"VM is still running.\nDo you want to save state and exit?")) {
+              VMSaveState();
+              PostQuitMessage(0);
+            }
+          } else {
+            PostQuitMessage(0);
+          }
           break;
       };
       break;
   };
   return DefWindowProc(hWnd, msg, wParam, lParam);
+}
+
+
+// The following declarations will provide functions that allow us to block
+// theshutdown process while we cleanly exit the VM. Snippet stolen from:
+// https://github.com/toptensoftware/VBoxHeadlessTray
+typedef BOOL (WINAPI* SHUTDOWNBLOCKCREATE)(HWND hWnd, LPCWSTR pwszReason);
+
+typedef BOOL (WINAPI* SHUTDOWNBLOCKDESTROY)(HWND hWnd);
+
+BOOL ShutdownBlockCreate(HWND hWnd, LPCWSTR pwszReason)
+{
+  SHUTDOWNBLOCKCREATE pfn = (SHUTDOWNBLOCKCREATE)GetProcAddress(GetModuleHandle("user32.dll"), "ShutdownBlockReasonCreate");
+  if (pfn)
+    return pfn(hWnd, pwszReason);
+  else
+    return FALSE;
+}
+
+BOOL ShutdownBlockDestroy(HWND hWnd)
+{
+  SHUTDOWNBLOCKDESTROY pfn = (SHUTDOWNBLOCKDESTROY)GetProcAddress(GetModuleHandle("user32.dll"), "ShutdownBlockReasonDestroy");
+  if (pfn)
+    return pfn(hWnd);
+  else
+    return FALSE;
 }
 
 LRESULT CALLBACK HandleEvent(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -122,9 +155,16 @@ LRESULT CALLBACK HandleEvent(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
       InitMenus();
       return 0;
     case WM_QUERYENDSESSION:
+      if (VMGetState() == MachineState_Running)
+        ShutdownBlockCreate(hWnd, L"Shutting down virtual machine");
       return TRUE;
     case WM_ENDSESSION:
-      if (wParam) FreeVirtualbox();
+      if (wParam) {
+        if (VMGetState() == MachineState_Running)
+          VMSaveState();
+        FreeVirtualbox();
+      }
+      ShutdownBlockDestroy(hWnd);
       return 0;
     default: return DefWindowProc(hWnd, msg, wParam, lParam);
   };
@@ -166,7 +206,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     return 1;
 
   // This will make the process exit before VBoxSVC, which will give
-  // time to cleanly shutdown the VM
+  // the chance to cleanly shutdown the VM
   // Stolen from: https://github.com/toptensoftware/VBoxHeadlessTray
   SetProcessShutdownParameters(0x400, 0);
 

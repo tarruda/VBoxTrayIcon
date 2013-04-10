@@ -1,0 +1,28 @@
+###VBoxTrayIcon
+
+Simple windows program to run a headless virtualbox(without the annoying console window) that can be controlled by a system tray icon.
+
+It is a much simpler alternative to [VBoxVmService](http://vboxvmservice.sourceforge.net/). Unlike VBoxVmService you dont need to install any windows service(no admin permissions required) and you can still manage your VMs through the normal virtualbox GUI.
+
+ For now it only has enough features to run a vm at startup and save at logoff, later when I get time I intend to implement more options. A more full-featured alternative can be found [here](http://www.toptensoftware.com/VBoxHeadlessTray/).
+
+Observations:
+- You can optionally specify a tray icon as the second argument.
+- If the vm is running when you logoff, it will save state automatically.
+- If you have a 64bit computer(very likely these days) and you installed 64bit virtualbox then you must download VBoxTrayIcon-x64.exe or else it won't work!
+- I only tested this on 64-bit virtualbox version 4.2.10 (latest version). Not
+  sure if it will work with other versions.
+
+###Installation/Usage
+
+No installation is required, just place the executable somewhere in your HD and create one shortcut per VM(possibly on startup directory if you want to keep the vm always running) with the following command line (assuming you downloaded the executable to C:\Downloads):
+
+    C:\Downloads\VBoxTrayIcon-x64.exe %VMNAME% [%VMICON%].
+
+###Compilation
+
+If you don't trust precompiled binaries you can build it yourself with mingw64. It can easily be cross-compiled in a ubuntu VM(tested 13.04) with the following commands:
+
+    $ sudo apt-get install mingw-w64
+    $ cd VBoxTrayIcon
+    $ make
