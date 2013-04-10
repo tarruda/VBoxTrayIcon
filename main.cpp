@@ -23,38 +23,41 @@ static char title[100];
 
 static NOTIFYICONDATA ndata;
 
+// the user can optionally specify an icon on the command line
+static char *iconPath;
+
 // Tray icon context menu
-static HMENU running_menu;
-static HMENU stopped_menu;
+static HMENU runningMenu;
+static HMENU stoppedMenu;
 
 static wchar_t *vmname;
-static char *vmname_ascii;
+static char *vmnameAscii;
 static char tooltip[64];
 
 void InitMenus()
 {
-  running_menu = CreatePopupMenu();
-  stopped_menu = CreatePopupMenu();
-  AppendMenu(running_menu, MF_STRING, WM_TRAY_SAVESTATE, "Save VM state");
-  AppendMenu(running_menu, MF_STRING, WM_TRAY_ACPISHUTDOWN, "ACPI shutdown");
-  AppendMenu(running_menu, MF_SEPARATOR, NULL, NULL);
-  AppendMenu(running_menu, MF_STRING, WM_TRAY_EXIT, "Exit");
-  AppendMenu(stopped_menu, MF_STRING, WM_TRAY_STARTVM, "Start VM");
-  AppendMenu(stopped_menu, MF_SEPARATOR, NULL, NULL);
-  AppendMenu(stopped_menu, MF_STRING, WM_TRAY_EXIT, "Exit");
+  runningMenu = CreatePopupMenu();
+  stoppedMenu = CreatePopupMenu();
+  AppendMenu(runningMenu, MF_STRING, WM_TRAY_SAVESTATE, "Save VM state");
+  AppendMenu(runningMenu, MF_STRING, WM_TRAY_ACPISHUTDOWN, "ACPI shutdown");
+  AppendMenu(runningMenu, MF_SEPARATOR, NULL, NULL);
+  AppendMenu(runningMenu, MF_STRING, WM_TRAY_EXIT, "Exit");
+  AppendMenu(stoppedMenu, MF_STRING, WM_TRAY_STARTVM, "Start VM");
+  AppendMenu(stoppedMenu, MF_SEPARATOR, NULL, NULL);
+  AppendMenu(stoppedMenu, MF_STRING, WM_TRAY_EXIT, "Exit");
 }
 
 void UpdateTray(MachineState state)
 {
   switch (state) {
     case MachineState_PoweredOff:
-      sprintf(tooltip, "%s: Powered off", vmname_ascii); break;
+      sprintf(tooltip, "%s: Powered off", vmnameAscii); break;
     case MachineState_Running:
-      sprintf(tooltip, "%s: Running", vmname_ascii); break;
+      sprintf(tooltip, "%s: Running", vmnameAscii); break;
     case MachineState_Saved:
-      sprintf(tooltip, "%s: Saved", vmname_ascii); break;
+      sprintf(tooltip, "%s: Saved", vmnameAscii); break;
     default:
-      sprintf(tooltip, "%s", vmname_ascii); break;
+      sprintf(tooltip, "%s", vmnameAscii); break;
   };
   strcpy(ndata.szTip, TEXT(tooltip));
   Shell_NotifyIcon(NIM_MODIFY, &ndata);
@@ -77,9 +80,9 @@ LRESULT CALLBACK HandleTrayEvent(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPar
       GetCursorPos(&point);
       SetForegroundWindow(hWnd); 
       if (state == MachineState_Running)
-        menu = running_menu;
+        menu = runningMenu;
       else
-        menu = stopped_menu;
+        menu = stoppedMenu;
       clicked = TrackPopupMenu(menu, flags, point.x, point.y, 0, hWnd, NULL);
       switch (clicked)
       {
@@ -129,14 +132,20 @@ LRESULT CALLBACK HandleEvent(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 int ParseOptions()
 {
+  size_t size;
+
   if (__argc == 1)
     return 0;
 
-  vmname_ascii = *(__argv + 1);
+  vmnameAscii = *(__argv + 1);
   // convert the vm name to wchar_t
-  const size_t size = strlen(vmname_ascii) + 1;
+  size = strlen(vmnameAscii) + 1;
   vmname = new wchar_t[size];
-  mbstowcs(vmname, vmname_ascii, size);
+  mbstowcs(vmname, vmnameAscii, size);
+
+  if (__argc > 1)
+    iconPath = *(__argv + 2);
+
   return 1;
 }
 
@@ -169,7 +178,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
   wcex.cbClsExtra = 0;
   wcex.cbWndExtra = 0;
   wcex.hInstance = hInstance;
-  wcex.hIcon = LoadIcon(hInstance, IDI_APPLICATION);
+  if (iconPath == NULL)
+    wcex.hIcon = LoadIcon(hInstance, IDI_APPLICATION);
+  else
+    wcex.hIcon = (HICON) LoadImage(NULL, iconPath, IMAGE_ICON, 0, 0,
+        LR_LOADFROMFILE| LR_DEFAULTSIZE| LR_SHARED);
   wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
   wcex.hbrBackground = (HBRUSH)COLOR_APPWORKSPACE;
   wcex.lpszMenuName = NULL;
@@ -177,7 +190,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
   wcex.hIconSm = LoadIcon(wcex.hInstance, IDI_APPLICATION);
   RegisterClassEx(&wcex);
 
-  sprintf(title, "VirtualBox Tray Icon: %s", vmname_ascii);
+  sprintf(title, "VirtualBox Tray Icon: %s", vmnameAscii);
   // without creating a window no message queue will exist, so this is
   // needed even if the window will be hidden most(or all) of the time
   hWnd = CreateWindow(wclass, title, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT,
@@ -187,7 +200,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
   ndata.cbSize = sizeof(NOTIFYICONDATA);
   ndata.hWnd = hWnd;
   ndata.uCallbackMessage = WM_TRAYEVENT; // custom message to identify tray events 
-  ndata.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_VBOXICON));
+  if (iconPath == NULL)
+    ndata.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_VBOXICON));
+  else
+    ndata.hIcon = (HICON) LoadImage(NULL, iconPath, IMAGE_ICON, 16, 16,
+        LR_LOADFROMFILE| LR_SHARED);
   ndata.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
   Shell_NotifyIcon(NIM_ADD, &ndata);
   UpdateTray(VMGetState());
