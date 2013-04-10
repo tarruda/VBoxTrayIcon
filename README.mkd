@@ -15,9 +15,13 @@ Observations:
 
 ###Installation/Usage
 
-No installation is required, just place the executable somewhere in your HD and create one shortcut per VM(possibly on startup directory if you want to keep the vm always running) with the following command line (assuming you downloaded the executable to C:\Downloads):
+No installation is required, just download the proper executable from the 'built' directory, place it somewhere in your HD and create one shortcut per VM(possibly on startup directory if you want to keep the vm always running) with the following command line (assuming you downloaded the executable to C:\Downloads):
 
     C:\Downloads\VBoxTrayIcon-x64.exe %VMNAME% [%VMICON%].
+
+Eg:
+
+    C:\Downloads\VBoxTrayIcon-x64.exe ubuntu ubuntu.ico
 
 ###Compilation
 
